@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>CPU Scheduling Visual Simulator</title>
+
+<style>
+
+body{
+font-family:Segoe UI;
+background:linear-gradient(135deg,#667eea,#764ba2);
+color:white;
+text-align:center;
+margin:0;
+}
+
+.container{
+background:white;
+color:black;
+width:85%;
+margin:30px auto;
+padding:25px;
+border-radius:15px;
+box-shadow:0 0 30px rgba(0,0,0,0.3);
+}
+
+table{
+margin:auto;
+border-collapse:collapse;
+width:75%;
+}
+
+th{
+background:#667eea;
+color:white;
+}
+
+td,th{
+padding:10px;
+border:1px solid #ddd;
+text-align:center;
+}
+
+input{
+width:60px;
+padding:6px;
+border-radius:6px;
+border:1px solid gray;
+text-align:center;
+}
+
+button{
+padding:12px 20px;
+margin:10px;
+border:none;
+border-radius:8px;
+font-size:15px;
+color:white;
+cursor:pointer;
+}
+
+button:hover{transform:scale(1.05);}
+
+.fcfs{background:#3498db;}
+.sjf{background:#2ecc71;}
+.rr{background:#f39c12;}
+.reset{background:#e74c3c;}
+
+/* Gantt Chart GRAPH STYLE */
+#gantt{
+margin-top:25px;
+overflow-x:auto;
+}
+
+.timeline{
+display:flex;
+align-items:center;
+justify-content:flex-start;
+margin-top:10px;
+}
+
+.block{
+min-width:70px;
+padding:12px;
+text-align:center;
+color:white;
+font-weight:bold;
+border-right:2px solid rgba(255,255,255,0.4);
+}
+
+.timeScale{
+display:flex;
+justify-content:flex-start;
+margin-top:10px;
+font-size:13px;
+color:black;
+}
+
+.timeScale div{
+min-width:70px;
+text-align:center;
+border-right:1px solid #ccc;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>CPU Scheduling Visual Simulator</h1>
+
+<div class="container">
+
+<h3>Enter Process Data</h3>
+
+<table>
+<tr>
+<th>Process</th>
+<th>Arrival</th>
+<th>Burst</th>
+</tr>
+
+<tbody id="data">
+<tr><td>P1</td><td><input></td><td><input></td></tr>
+<tr><td>P2</td><td><input></td><td><input></td></tr>
+<tr><td>P3</td><td><input></td><td><input></td></tr>
+<tr><td>P4</td><td><input></td><td><input></td></tr>
+<tr><td>P5</td><td><input></td><td><input></td></tr>
+</tbody>
+</table>
+
+<br>
+
+<button class="fcfs" onclick="fcfs()">FCFS</button>
+<button class="sjf" onclick="sjf()">SJF</button>
+<button class="rr" onclick="rr()">Round Robin</button>
+<button class="reset" onclick="location.reload()">Reset</button>
+
+<div id="result"></div>
+<div id="gantt"></div>
+
+</div>
+
+<script>
+
+/* GET DATA */
+function getData(){
+let rows=document.querySelectorAll("#data tr");
+let p=[];
+
+rows.forEach((r,i)=>{
+let inputs=r.querySelectorAll("input");
+
+p.push({
+id:i+1,
+at:parseInt(inputs[0].value)||0,
+bt:parseInt(inputs[1].value)||0
+});
+});
+
+return p;
+}
+
+/* RESULT TABLE */
+function showResult(p){
+
+p.sort((a,b)=>a.id-b.id);
+
+let html=`
+<h3>Result Table</h3>
+<table>
+<tr>
+<th>Process</th>
+<th>AT</th>
+<th>BT</th>
+<th>CT</th>
+<th>WT</th>
+<th>TAT</th>
+</tr>
+`;
+
+p.forEach(pr=>{
+html+=`
+<tr>
+<td>P${pr.id}</td>
+<td>${pr.at}</td>
+<td>${pr.bt}</td>
+<td>${pr.ct}</td>
+<td>${pr.wt}</td>
+<td>${pr.tat}</td>
+</tr>
+`;
+});
+
+html+=`</table>`;
+document.getElementById("result").innerHTML=html;
+}
+
+/* GRAPH STYLE GANTT CHART */
+function showGantt(list,color){
+
+let g=document.getElementById("gantt");
+g.innerHTML="<h3>Gantt Chart (Timeline)</h3>";
+
+let timeline=document.createElement("div");
+timeline.className="timeline";
+
+let timeScale=document.createElement("div");
+timeScale.className="timeScale";
+
+let time=0;
+
+/* blocks */
+list.forEach(p=>{
+
+let block=document.createElement("div");
+block.className="block";
+block.style.background=color;
+block.innerHTML="P"+p.id;
+
+timeline.appendChild(block);
+
+/* time label */
+let t=document.createElement("div");
+t.innerHTML=time;
+timeScale.appendChild(t);
+
+time++;
+});
+
+/* last time */
+let t=document.createElement("div");
+t.innerHTML=time;
+timeScale.appendChild(t);
+
+g.appendChild(timeline);
+g.appendChild(timeScale);
+}
+
+/* FCFS */
+function fcfs(){
+
+let p=getData();
+p.sort((a,b)=>a.at-b.at);
+
+let time=0;
+
+p.forEach(pr=>{
+if(time<pr.at) time=pr.at;
+
+time+=pr.bt;
+
+pr.ct=time;
+pr.tat=pr.ct-pr.at;
+pr.wt=pr.tat-pr.bt;
+});
+
+showResult(p);
+showGantt(p,"#3498db");
+}
+
+/* SJF */
+function sjf(){
+
+let p=getData();
+let time=0;
+let done=[];
+let completed=[];
+let gantt=[];
+
+while(completed.length<p.length){
+
+let ready=p.filter(x=>!done.includes(x) && x.at<=time);
+
+if(ready.length==0){
+time++;
+continue;
+}
+
+ready.sort((a,b)=>a.bt-b.bt);
+
+let pr=ready[0];
+
+time+=pr.bt;
+
+pr.ct=time;
+pr.tat=pr.ct-pr.at;
+pr.wt=pr.tat-pr.bt;
+
+done.push(pr);
+completed.push(pr);
+
+gantt.push({id:pr.id});
+}
+
+showResult(completed);
+showGantt(gantt,"#2ecc71");
+}
+
+/* ROUND ROBIN */
+function rr(){
+
+let q=parseInt(prompt("Enter Time Quantum"));
+let p=getData();
+
+let time=0;
+let remaining=p.map(x=>x.bt);
+let gantt=[];
+
+while(true){
+
+let done=true;
+
+for(let i=0;i<p.length;i++){
+
+if(remaining[i]>0){
+
+done=false;
+
+if(remaining[i]>q){
+time+=q;
+remaining[i]-=q;
+gantt.push({id:p[i].id});
+}
+else{
+time+=remaining[i];
+remaining[i]=0;
+p[i].ct=time;
+gantt.push({id:p[i].id});
+}
+}
+}
+
+if(done) break;
+}
+
+p.forEach(pr=>{
+pr.tat=pr.ct-pr.at;
+pr.wt=pr.tat-pr.bt;
+});
+
+showResult(p);
+showGantt(gantt,"#f39c12");
+}
+
+</script>
+
+</body>
+</html>
